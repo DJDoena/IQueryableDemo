@@ -7,11 +7,11 @@ internal static class WhereExtensions
     // ----- IEnumerable<Car> version -----
     // Mirrors Enumerable.Where: runs immediately (well, lazily via yield) and
     // in-memory, item by item, no expression trees involved at all.
-    public static IEnumerable<Car> Where(this IEnumerable<Car> source
+    public static IEnumerable<Car> EnumerableWhere(this IEnumerable<Car> source
         , Func<Car, bool> predicate
         , IOutputProvider output)
     {
-        output.WriteLine($"{nameof(Where)} called, returning a lazy iterator, nothing enumerated yet.");
+        output.WriteLine($"{nameof(EnumerableWhere)} called, returning a lazy iterator, nothing enumerated yet.");
 
         var enumerable = GetWhereIterator(source, predicate, output);
 

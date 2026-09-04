@@ -79,7 +79,7 @@ internal class CarQueryProvider : IQueryProvider
                     // original data source" - our custom CarEnumerable.
                     return _source;
                 }
-            case MethodCallExpression { Method.Name: "Where" } whereCall:
+            case MethodCallExpression { Method.Name: "QueryableWhere" } whereCall:
                 {
                     // whereCall.Arguments[0] is the expression for whatever came
                     // before this Where (either the root constant, or another

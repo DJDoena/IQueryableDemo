@@ -29,7 +29,7 @@ void TestEnumerable()
     output.WriteLine("=== IEnumerable (filter by 'c.Color == ConsoleColor.Red') ===");
     output.WriteLine("Building query (nothing executed yet)...");
     var colorQuery = storage.GetCarsEnumerable()
-        .Where(c => c.Color == ConsoleColor.Red, output);
+        .EnumerableWhere(c => c.Color == ConsoleColor.Red, output);
 
     output.WriteLine("Enumerating now:");
     PrintResults(output, colorQuery);
@@ -38,7 +38,7 @@ void TestEnumerable()
     output.WriteLine("=== IEnumerable (filter by 'c.Doors == 4') ===");
     output.WriteLine("Building query (nothing executed yet)...");
     var doorsQuery = storage.GetCarsEnumerable()
-        .Where(c => c.Doors == 4, output);
+        .EnumerableWhere(c => c.Doors == 4, output);
 
     output.WriteLine("Enumerating now:");
     PrintResults(output, doorsQuery);
@@ -47,7 +47,7 @@ void TestEnumerable()
     output.WriteLine("=== IEnumerable (filter by 'c.Color == ConsoleColor.Red && c.Doors >= 3')===");
     output.WriteLine("Building query (nothing executed yet)...");
     var compoundQuery = storage.GetCarsEnumerable()
-        .Where(c => c.Color == ConsoleColor.Red && c.Doors >= 3, output);
+        .EnumerableWhere(c => c.Color == ConsoleColor.Red && c.Doors >= 3, output);
 
     output.WriteLine("Enumerating now:");
     PrintResults(output, compoundQuery);
@@ -56,7 +56,7 @@ void TestEnumerable()
     output.WriteLine("=== IEnumerable (filter by 'blueCarFilter') ===");
     output.WriteLine("Building query (nothing executed yet)...");
     var blueQuery = storage.GetCarsEnumerable()
-        .Where(blueCarFilter, output);
+        .EnumerableWhere(blueCarFilter, output);
 
     output.WriteLine("Enumerating now:");
     PrintResults(output, blueQuery);
@@ -69,7 +69,7 @@ void TestQueryable()
     output.WriteLine("=== IQueryable (filter by 'c.Color == ConsoleColor.Red') ===");
     output.WriteLine("Building query (nothing executed yet, expression tree only)...");
     var redQuery = storage.GetCarsQueryable(output)
-        .Where(c => c.Color == ConsoleColor.Red, output);
+        .QueryableWhere(c => c.Color == ConsoleColor.Red, output);
 
     output.WriteLine("Enumerating now (provider translates expression tree, then executes):");
     PrintResults(output, redQuery);
@@ -78,7 +78,7 @@ void TestQueryable()
     output.WriteLine("=== IQueryable (filter by 'c.Doors == 4') ===");
     output.WriteLine("Building query (nothing executed yet, expression tree only)...");
     var doorsQuery = storage.GetCarsQueryable(output)
-        .Where(c => c.Doors == 4, output);
+        .QueryableWhere(c => c.Doors == 4, output);
 
     output.WriteLine("Enumerating now (provider translates expression tree, then executes):");
     PrintResults(output, doorsQuery);
@@ -87,7 +87,7 @@ void TestQueryable()
     output.WriteLine("=== IQueryable (filter by 'c.Color == ConsoleColor.Red && c.Doors >= 3')===");
     output.WriteLine("Building query (nothing executed yet, expression tree only)...");
     var compoundQuery = storage.GetCarsQueryable(output)
-        .Where(c => c.Color == ConsoleColor.Red && c.Doors >= 3, output);
+        .QueryableWhere(c => c.Color == ConsoleColor.Red && c.Doors >= 3, output);
 
     output.WriteLine("Enumerating now (provider translates expression tree, then executes):");
     PrintResults(output, compoundQuery);
@@ -96,7 +96,7 @@ void TestQueryable()
     output.WriteLine("=== IQueryable (filter by 'blueCarFilter') ===");
     output.WriteLine("Building query (nothing executed yet, expression tree only)...");
     var blueQuery = storage.GetCarsQueryable(output)
-        .Where(blueCarFilter, output);
+        .EnumerableWhere(blueCarFilter, output);
 
     output.WriteLine("Enumerating now (provider translates expression tree, then executes):");
     PrintResults(output, blueQuery);
@@ -110,7 +110,7 @@ void TestSqlQueryable()
     output.WriteLine("Building query (nothing executed yet, expression tree only)...");
     var sqlColorQueryable = new CarSqlQueryable<Car>(new CarSqlQueryProvider(storage.GetCarsQueryable(output), output), output);
     var redQuery = sqlColorQueryable
-        .Where(c => c.Color == ConsoleColor.Red, output);
+        .QueryableWhere(c => c.Color == ConsoleColor.Red, output);
 
     output.WriteLine("Enumerating now (provider translates expression tree to SQL, then \"executes\"):");
     PrintResults(output, redQuery);
@@ -120,7 +120,7 @@ void TestSqlQueryable()
     output.WriteLine("Building query (nothing executed yet, expression tree only)...");
     var doorsQueryable = new CarSqlQueryable<Car>(new CarSqlQueryProvider(storage.GetCarsQueryable(output), output), output);
     var doorsQuery = doorsQueryable
-        .Where(c => c.Doors == 4, output);
+        .QueryableWhere(c => c.Doors == 4, output);
 
     output.WriteLine("Enumerating now (provider translates expression tree to SQL, then \"executes\"):");
     PrintResults(output, doorsQuery);
@@ -130,7 +130,7 @@ void TestSqlQueryable()
     output.WriteLine("Building query (nothing executed yet, expression tree only)...");
     var compoundQueryable = new CarSqlQueryable<Car>(new CarSqlQueryProvider(storage.GetCarsQueryable(output), output), output);
     var compoundQuery = compoundQueryable
-        .Where(c => c.Color == ConsoleColor.Red && c.Doors >= 3, output);
+        .QueryableWhere(c => c.Color == ConsoleColor.Red && c.Doors >= 3, output);
 
     output.WriteLine("Enumerating now (provider translates expression tree to SQL, then \"executes\"):");
     PrintResults(output, compoundQuery);
@@ -140,7 +140,7 @@ void TestSqlQueryable()
     output.WriteLine("Building query (nothing executed yet, expression tree only)...");
     var blueQueryable = new CarSqlQueryable<Car>(new CarSqlQueryProvider(storage.GetCarsQueryable(output), output), output);
     var blueQuery = blueQueryable
-        .Where(blueCarFilter, output); //will throw exception because the provider cannot translate a delegate to SQL
+        .EnumerableWhere(blueCarFilter, output); //will throw exception because the provider cannot translate a delegate to SQL
 
     output.WriteLine("Enumerating now (provider translates expression tree, then executes):");
     PrintResults(output, blueQuery);

@@ -121,7 +121,7 @@ internal class CarSqlQueryProvider : IQueryProvider
 
                     return _source;
                 }
-            case MethodCallExpression { Method.Name: "Where" } whereCall:
+            case MethodCallExpression { Method.Name: "QueryableWhere" } whereCall:
                 {
                     // Recurse first so nested/chained Where calls could each
                     // contribute their own AND'ed clause in a fuller example.

@@ -1,6 +1,8 @@
+using QueryableTest.Models;
+using QueryableTest.Queryable;
 using System.Linq.Expressions;
 
-namespace QueryableTest;
+namespace QueryableTest.SqlQueryable;
 
 // A fictional SQL-backed IQueryProvider. Instead of interpreting the
 // expression tree in-memory item by item (like CarQueryProvider does), this
@@ -21,34 +23,37 @@ internal class CarSqlQueryProvider : IQueryProvider
 {
     private readonly IEnumerable<Car> _source;
 
-    public CarSqlQueryProvider(IEnumerable<Car> source)
+    private readonly IOutputProvider _output;
+
+    public CarSqlQueryProvider(IEnumerable<Car> source, IOutputProvider output)
     {
         _source = source;
+        _output = output;
     }
 
     public IQueryable CreateQuery(Expression expression)
     {
-        Console.WriteLine($"  [SqlProvider] CreateQuery called with expression: {expression}");
+        _output.WriteLine($"CreateQuery called with expression: {expression}");
 
         var elementType = expression.Type.GetGenericArguments()[0];
 
         var queryableType = typeof(CarSqlQueryable<>).MakeGenericType(elementType);
 
-        var wrapped = (IQueryable)Activator.CreateInstance(queryableType, this, expression)!;
+        var wrapped = (IQueryable)Activator.CreateInstance(queryableType, this, expression, _output)!;
 
         return wrapped;
     }
 
     public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
     {
-        Console.WriteLine($"  [SqlProvider] CreateQuery<{typeof(TElement).Name}> called with expression: {expression}");
+        _output.WriteLine($"CreateQuery<{typeof(TElement).Name}> called with expression: {expression}");
 
-        return new CarSqlQueryable<TElement>(this, expression);
+        return new CarSqlQueryable<TElement>(this, expression, _output);
     }
 
     public object? Execute(Expression expression)
     {
-        Console.WriteLine($"  [SqlProvider] Execute called with expression: {expression}");
+        _output.WriteLine($"Execute called with expression: {expression}");
 
         var result = this.Translate(expression);
 
@@ -57,7 +62,7 @@ internal class CarSqlQueryProvider : IQueryProvider
 
     public TResult Execute<TResult>(Expression expression)
     {
-        Console.WriteLine($"  [SqlProvider] Execute<{typeof(TResult).Name}> called with expression: {expression}");
+        _output.WriteLine($"Execute<{typeof(TResult).Name}> called with expression: {expression}");
 
         var result = (TResult)this.Translate(expression)!;
 
@@ -79,7 +84,7 @@ internal class CarSqlQueryProvider : IQueryProvider
                 // Root of the query, no filtering applied yet.
                 return _source;
 
-            case MethodCallExpression { Method.Name: "WhereDebug" } whereCall:
+            case MethodCallExpression { Method.Name: "Where" } whereCall:
                 // Recurse first so nested/chained Where calls could each
                 // contribute their own AND'ed clause in a fuller example.
                 var sourceSoFar = (IEnumerable<Car>)this.Translate(whereCall.Arguments[0]);
@@ -91,8 +96,8 @@ internal class CarSqlQueryProvider : IQueryProvider
 
                 var sqlStatement = $"SELECT * FROM Cars WHERE {sqlWhereClause}";
 
-                Console.WriteLine($"  [SqlProvider] Generated SQL: {sqlStatement}");
-                Console.WriteLine("  [SqlProvider] (no real database connected - the SQL above is never executed)");
+                _output.WriteLine($"Generated SQL: {sqlStatement}");
+                _output.WriteLine("(no real database connected - the SQL above is never executed)");
 
                 // ----- ".NET" side: yield a real result, independently of the SQL above -----
                 // This does NOT parse or execute sqlStatement in any way. It
@@ -103,7 +108,7 @@ internal class CarSqlQueryProvider : IQueryProvider
                 // nonsensical SQL, the cars returned here would be completely
                 // unaffected - both providers share one filtering
                 // implementation instead of maintaining duplicate copies.
-                var whereFilter = CarQueryProvider.GetWhereFilter(sourceSoFar, lambda, "SqlProvider");
+                var whereFilter = CarQueryProvider.GetWhereFilter(sourceSoFar, lambda, _output);
 
                 return whereFilter;
 

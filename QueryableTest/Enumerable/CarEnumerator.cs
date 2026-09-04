@@ -1,6 +1,7 @@
-﻿using System.Collections;
+﻿using QueryableTest.Models;
+using System.Collections;
 
-namespace QueryableTest;
+namespace QueryableTest.Enumerable;
 
 internal class CarEnumerator : IEnumerator<Car>
 {

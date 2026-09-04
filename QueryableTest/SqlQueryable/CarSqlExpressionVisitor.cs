@@ -1,7 +1,7 @@
 using System.Linq.Expressions;
 using System.Text;
 
-namespace QueryableTest;
+namespace QueryableTest.SqlQueryable;
 
 // Fictional example of how a real IQueryProvider (e.g. EF Core) would take
 // the same expression tree that CarQueryProvider.Evaluate interprets

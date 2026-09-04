@@ -1,6 +1,7 @@
-﻿using System.Linq.Expressions;
+﻿using QueryableTest.Models;
+using System.Linq.Expressions;
 
-namespace QueryableTest;
+namespace QueryableTest.Queryable;
 
 // A minimal IQueryProvider that interprets the expression tree itself instead
 // of delegating to List<T>.AsQueryable()'s built-in provider. It only
@@ -10,34 +11,37 @@ internal class CarQueryProvider : IQueryProvider
 {
     private readonly IEnumerable<Car> _source;
 
-    public CarQueryProvider(IEnumerable<Car> source)
+    private readonly IOutputProvider _output;
+
+    public CarQueryProvider(IEnumerable<Car> source, IOutputProvider output)
     {
         _source = source;
+        _output = output;
     }
 
     public IQueryable CreateQuery(Expression expression)
     {
-        Console.WriteLine($"  [Provider] CreateQuery called with expression: {expression}");
+        _output.WriteLine($"CreateQuery called with expression: {expression}");
 
         var elementType = expression.Type.GetGenericArguments()[0];
 
         var queryableType = typeof(CarQueryable<>).MakeGenericType(elementType);
 
-        var wrapped = (IQueryable)Activator.CreateInstance(queryableType, this, expression)!;
+        var wrapped = (IQueryable)Activator.CreateInstance(queryableType, this, expression, _output)!;
 
         return wrapped;
     }
 
     public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
     {
-        Console.WriteLine($"  [Provider] CreateQuery<{typeof(TElement).Name}> called with expression: {expression}");
+        _output.WriteLine($"CreateQuery<{typeof(TElement).Name}> called with expression: {expression}");
 
-        return new CarQueryable<TElement>(this, expression);
+        return new CarQueryable<TElement>(this, expression, _output);
     }
 
     public object? Execute(Expression expression)
     {
-        Console.WriteLine($"  [Provider] Execute called with expression: {expression}");
+        _output.WriteLine($"Execute called with expression: {expression}");
 
         var result = this.Evaluate(expression);
 
@@ -46,7 +50,7 @@ internal class CarQueryProvider : IQueryProvider
 
     public TResult Execute<TResult>(Expression expression)
     {
-        Console.WriteLine($"  [Provider] Execute<{typeof(TResult).Name}> called with expression: {expression}");
+        _output.WriteLine($"Execute<{typeof(TResult).Name}> called with expression: {expression}");
 
         var result = (TResult)this.Evaluate(expression)!;
 
@@ -66,7 +70,7 @@ internal class CarQueryProvider : IQueryProvider
                 // original data source" - our custom CarEnumerable.
                 return _source;
 
-            case MethodCallExpression { Method.Name: "WhereDebug" } whereCall:
+            case MethodCallExpression { Method.Name: "Where" } whereCall:
                 // whereCall.Arguments[0] is the expression for whatever came
                 // before this Where (either the root constant, or another
                 // operator) - recurse into it first to get its results.
@@ -82,7 +86,7 @@ internal class CarQueryProvider : IQueryProvider
                 // expression tree (not the compiled delegate) to build a
                 // WHERE clause instead of filtering in-memory below - see
                 // CarSqlQueryProvider for a demonstration of that approach.
-                var whereFilter = GetWhereFilter(filteredSource, lambda, "Provider");
+                var whereFilter = GetWhereFilter(filteredSource, lambda, _output);
 
                 return whereFilter;
 
@@ -98,16 +102,16 @@ internal class CarQueryProvider : IQueryProvider
     // and CarSqlQueryProvider (fictional SQL path) so there's a single,
     // reusable "run this predicate against real cars" implementation instead
     // of each provider maintaining its own copy.
-    internal static IEnumerable<Car> GetWhereFilter(IEnumerable<Car> filteredSource, LambdaExpression lambda, string providerName)
+    internal static IEnumerable<Car> GetWhereFilter(IEnumerable<Car> filteredSource, LambdaExpression lambda, IOutputProvider output)
     {
         var predicate = (Func<Car, bool>)lambda.Compile();
 
-        var whereFilter = FilterManually(filteredSource, predicate, providerName);
+        var whereFilter = FilterManually(filteredSource, predicate, output);
 
         return whereFilter;
     }
 
-    private static IEnumerable<Car> FilterManually(IEnumerable<Car> cars, Func<Car, bool> predicate, string providerName)
+    private static IEnumerable<Car> FilterManually(IEnumerable<Car> cars, Func<Car, bool> predicate, IOutputProvider output)
     {
         // A hand-written, lazily-evaluated filter (our own version of what
         // Enumerable.Where does internally). The yield return makes this a
@@ -118,7 +122,7 @@ internal class CarQueryProvider : IQueryProvider
         {
             var isMatch = predicate(car);
 
-            Console.WriteLine($"  [{providerName}] Testing predicate against {car.Color} car with {car.Doors} doors: {isMatch}");
+            output.WriteLine($"Testing predicate against {car.Color} car with {car.Doors} doors: {isMatch}");
 
             if (isMatch)
             {

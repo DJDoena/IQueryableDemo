@@ -1,15 +1,18 @@
 ﻿using System.Collections;
 using System.Linq.Expressions;
 
-namespace QueryableTest;
+namespace QueryableTest.Queryable;
 
 // ----- Hand-rolled IQueryable<Car> -----
 
 internal class CarQueryable<T> : IQueryable<T>
 {
-    public CarQueryable(CarQueryProvider provider)
+    private readonly IOutputProvider _output;
+
+    public CarQueryable(CarQueryProvider provider, IOutputProvider output)
     {
         this.Provider = provider;
+        _output = output;
 
         // No expression was supplied, so this is the root of the query.
         // Represent "the data source" as a ConstantExpression wrapping this
@@ -18,10 +21,11 @@ internal class CarQueryable<T> : IQueryable<T>
         this.Expression = Expression.Constant(this);
     }
 
-    public CarQueryable(CarQueryProvider provider, Expression expression)
+    public CarQueryable(CarQueryProvider provider, Expression expression, IOutputProvider output)
     {
         this.Provider = provider;
         this.Expression = expression;
+        _output = output;
     }
 
     public Type ElementType
@@ -47,7 +51,7 @@ internal class CarQueryable<T> : IQueryable<T>
         // Count(), etc.) calls GetEnumerator(), which asks the provider to
         // Execute the accumulated Expression tree and only then produces real
         // Car instances.
-        Console.WriteLine("  [Provider] Enumeration started, executing expression tree...");
+        _output.WriteLine("Enumeration started, executing expression tree...");
 
         var enumerable = this.Provider.Execute<IEnumerable<T>>(this.Expression);
 

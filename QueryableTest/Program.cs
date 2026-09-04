@@ -1,4 +1,8 @@
 using QueryableTest;
+using QueryableTest.Enumerable;
+using QueryableTest.Models;
+using QueryableTest.Queryable;
+using QueryableTest.SqlQueryable;
 
 var storage = new Storage();
 
@@ -8,40 +12,43 @@ storage.AddCar(new Car { Color = ConsoleColor.Red, Doors = 4 });
 storage.AddCar(new Car { Color = ConsoleColor.White, Doors = 2 });
 storage.AddCar(new Car { Color = ConsoleColor.Red, Doors = 5 });
 
-Console.WriteLine("=== IEnumerable ===");
-Console.WriteLine("Building query (nothing executed yet)...");
-var enumerableQuery = storage.CarsEnumerable
-    .WhereDebug(c => c.Color == ConsoleColor.Red);
+var enumerableOutput = new OutputProvider("Enumerable");
+enumerableOutput.WriteLine("=== IEnumerable ===");
+enumerableOutput.WriteLine("Building query (nothing executed yet)...");
+var enumerableQuery = storage.GetCarsEnumerable()
+    .Where(c => c.Color == ConsoleColor.Red, enumerableOutput);
 
-Console.WriteLine("Enumerating now:");
+enumerableOutput.WriteLine("Enumerating now:");
 foreach (var car in enumerableQuery)
 {
-    Console.WriteLine($"  {car.Color} car with {car.Doors} doors");
+    enumerableOutput.WriteLine($"  {car.Color} car with {car.Doors} doors");
 }
 
-Console.WriteLine();
-Console.WriteLine("=== IQueryable ===");
-Console.WriteLine("Building query (nothing executed yet, expression tree only)...");
-var queryableQuery = storage.CarsQueryable
-    .WhereDebug(c => c.Color == ConsoleColor.Red);
+var inMemoryOutput = new OutputProvider("Provider");
+inMemoryOutput.WriteLine();
+inMemoryOutput.WriteLine("=== IQueryable ===");
+inMemoryOutput.WriteLine("Building query (nothing executed yet, expression tree only)...");
+var queryableQuery = storage.GetCarsQueryable(inMemoryOutput)
+    .Where(c => c.Color == ConsoleColor.Red, inMemoryOutput);
 
-Console.WriteLine("Enumerating now (provider translates expression tree, then executes):");
+inMemoryOutput.WriteLine("Enumerating now (provider translates expression tree, then executes):");
 foreach (var car in queryableQuery)
 {
-    Console.WriteLine($"  {car.Color} car with {car.Doors} doors");
+    inMemoryOutput.WriteLine($"  {car.Color} car with {car.Doors} doors");
 }
 
-Console.WriteLine();
-Console.WriteLine("=== Fictional SQL-backed IQueryable ===");
-Console.WriteLine("Building query (nothing executed yet, expression tree only)...");
-var sqlQueryable = new CarSqlQueryable<Car>(new CarSqlQueryProvider(storage.CarsEnumerable));
+var sqlOutput = new OutputProvider("SqlProvider");
+sqlOutput.WriteLine();
+sqlOutput.WriteLine("=== Fictional SQL-backed IQueryable ===");
+sqlOutput.WriteLine("Building query (nothing executed yet, expression tree only)...");
+var sqlQueryable = new CarSqlQueryable<Car>(new CarSqlQueryProvider(storage.GetCarsQueryable(sqlOutput), sqlOutput), sqlOutput);
 var sqlQuery = sqlQueryable
-    .WhereDebug(c => c.Color == ConsoleColor.Red);
+    .Where(c => c.Color == ConsoleColor.Red, sqlOutput);
 
-Console.WriteLine("Enumerating now (provider translates expression tree to SQL, then \"executes\"):");
+sqlOutput.WriteLine("Enumerating now (provider translates expression tree to SQL, then \"executes\"):");
 foreach (var car in sqlQuery)
 {
-    Console.WriteLine($"  {car.Color} car with {car.Doors} doors");
+    sqlOutput.WriteLine($"  {car.Color} car with {car.Doors} doors");
 }
 
 Console.WriteLine("Press <enter> to exit...");

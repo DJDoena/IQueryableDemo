@@ -1,7 +1,7 @@
 using System.Collections;
 using System.Linq.Expressions;
 
-namespace QueryableTest;
+namespace QueryableTest.SqlQueryable;
 
 // ----- Fictional SQL-backed IQueryable<Car> -----
 // Independent twin of CarQueryable<T>, wired up to CarSqlQueryProvider
@@ -9,16 +9,20 @@ namespace QueryableTest;
 // provider's IQueryable side looks like next to the in-memory one.
 internal class CarSqlQueryable<T> : IQueryable<T>
 {
-    public CarSqlQueryable(CarSqlQueryProvider provider)
+    private readonly IOutputProvider _output;
+
+    public CarSqlQueryable(CarSqlQueryProvider provider, IOutputProvider output)
     {
         this.Provider = provider;
         this.Expression = Expression.Constant(this);
+        _output = output;
     }
 
-    public CarSqlQueryable(CarSqlQueryProvider provider, Expression expression)
+    public CarSqlQueryable(CarSqlQueryProvider provider, Expression expression, IOutputProvider output)
     {
         this.Provider = provider;
         this.Expression = expression;
+        _output = output;
     }
 
     public Type ElementType
@@ -32,7 +36,7 @@ internal class CarSqlQueryable<T> : IQueryable<T>
 
     public IEnumerator<T> GetEnumerator()
     {
-        Console.WriteLine("  [SqlProvider] Enumeration started, translating expression tree to SQL...");
+        _output.WriteLine("Enumeration started, translating expression tree to SQL...");
 
         var enumerable = this.Provider.Execute<IEnumerable<T>>(this.Expression);
 

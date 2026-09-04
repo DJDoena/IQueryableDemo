@@ -1,4 +1,4 @@
-﻿namespace QueryableTest;
+﻿namespace QueryableTest.Models;
 
 internal class Car
 {

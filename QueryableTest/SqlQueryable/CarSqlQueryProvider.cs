@@ -33,7 +33,9 @@ internal class CarSqlQueryProvider : IQueryProvider
 
     public IQueryable CreateQuery(Expression expression)
     {
-        _output.WriteLine($"CreateQuery called with expression: {expression}");
+        var expressionText = expression.ToString();
+
+        _output.WriteLine($"{nameof(CreateQuery)} called with expression: {expressionText}");
 
         var elementType = expression.Type.GetGenericArguments()[0];
 
@@ -46,25 +48,31 @@ internal class CarSqlQueryProvider : IQueryProvider
 
     public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
     {
-        _output.WriteLine($"CreateQuery<{typeof(TElement).Name}> called with expression: {expression}");
+        var expressionText = expression.ToString();
+
+        _output.WriteLine($"{nameof(CreateQuery)}<{typeof(TElement).Name}> called with expression: {expressionText}");
 
         return new CarSqlQueryable<TElement>(this, expression, _output);
     }
 
     public object? Execute(Expression expression)
     {
-        _output.WriteLine($"Execute called with expression: {expression}");
+        var expressionText = expression.ToString();
 
-        var result = this.Translate(expression);
+        _output.WriteLine($"{nameof(Execute)} called with expression: {expressionText}");
+
+        var result = this.Evaluate(expression);
 
         return result;
     }
 
     public TResult Execute<TResult>(Expression expression)
     {
-        _output.WriteLine($"Execute<{typeof(TResult).Name}> called with expression: {expression}");
+        var expressionText = expression.ToString();
 
-        var result = (TResult)this.Translate(expression)!;
+        _output.WriteLine($"{nameof(Execute)}<{typeof(TResult).Name}> called with expression: {expressionText}");
+
+        var result = (TResult)this.Evaluate(expression)!;
 
         return result;
     }
@@ -76,44 +84,76 @@ internal class CarSqlQueryProvider : IQueryProvider
     // completely separate, unrelated step further down (compiling the same
     // predicate and filtering _source in .NET) - the two are not wired
     // together in any way.
-    private object Translate(Expression expression)
+    private object Evaluate(Expression expression, bool isTopLevel = true)
     {
         switch (expression)
         {
             case ConstantExpression { Value: CarSqlQueryable<Car> }:
-                // Root of the query, no filtering applied yet.
-                return _source;
+                {
+                    // This is the legitimate base case when reached
+                    // recursively from the Where case below (whereCall.Arguments[0]):
+                    // it just means "start from the original data source".
+                    //
+                    // If, instead, this is the TOP-LEVEL call (isTopLevel is
+                    // still true), it means Evaluate was invoked with only
+                    // the bare root ConstantExpression and no Where(...)
+                    // MethodCallExpression at all - i.e. no SQL could be
+                    // generated. This typically happens when .Where(...) was
+                    // called with an already-compiled Func<Car, bool> delegate
+                    // instead of an Expression<Func<Car, bool>> lambda: the
+                    // IEnumerable<Car> overload silently binds instead of the
+                    // IQueryable<Car> one (both are applicable since
+                    // CarSqlQueryable<T> : IQueryable<T> : IEnumerable<T>),
+                    // so the expression tree never gets a Where node appended
+                    // to it - exactly the kind of predicate EF Core also
+                    // cannot translate to SQL. Unlike the in-memory
+                    // CarQueryProvider (which has no SQL to generate and so
+                    // has nothing to fail at), a SQL-backed provider throwing
+                    // here mirrors EF Core's real behavior of raising an
+                    // exception when a query cannot be translated, rather
+                    // than silently falling back to client-side evaluation.
+                    if (isTopLevel)
+                    {
+                        var errorMessage = "No SQL could be determined from this expression";
 
+                        throw new Exception(errorMessage);
+                    }
+
+                    return _source;
+                }
             case MethodCallExpression { Method.Name: "Where" } whereCall:
-                // Recurse first so nested/chained Where calls could each
-                // contribute their own AND'ed clause in a fuller example.
-                var sourceSoFar = (IEnumerable<Car>)this.Translate(whereCall.Arguments[0]);
+                {
+                    // Recurse first so nested/chained Where calls could each
+                    // contribute their own AND'ed clause in a fuller example.
+                    var sourceSoFar = (IEnumerable<Car>)this.Evaluate(whereCall.Arguments[0], isTopLevel: false);
 
-                var lambda = (LambdaExpression)StripQuotes(whereCall.Arguments[1]);
+                    var lambda = (LambdaExpression)StripQuotes(whereCall.Arguments[1]);
 
-                // ----- "Database" side: build and print the SQL, nothing else -----
-                var sqlWhereClause = CarSqlExpressionVisitor.Translate(lambda.Body);
+                    // ----- "Database" side: build and print the SQL, nothing else -----
+                    var sqlWhereClause = CarSqlExpressionVisitor.Translate(lambda.Body);
 
-                var sqlStatement = $"SELECT * FROM Cars WHERE {sqlWhereClause}";
+                    var sqlStatement = $"SELECT * FROM Cars WHERE {sqlWhereClause}";
 
-                _output.WriteLine($"Generated SQL: {sqlStatement}");
-                _output.WriteLine("(no real database connected - the SQL above is never executed)");
+                    _output.WriteLine($"Generated SQL: {sqlStatement}");
+                    _output.WriteLine("(no real database connected - the SQL above is never executed)");
 
-                // ----- ".NET" side: yield a real result, independently of the SQL above -----
-                // This does NOT parse or execute sqlStatement in any way. It
-                // reuses CarQueryProvider.GetWhereFilter to compile the same
-                // predicate expression the SQL was generated from and filter
-                // in-memory, purely so the example has actual Car results to
-                // enumerate. If CarSqlExpressionVisitor produced wrong or
-                // nonsensical SQL, the cars returned here would be completely
-                // unaffected - both providers share one filtering
-                // implementation instead of maintaining duplicate copies.
-                var whereFilter = CarQueryProvider.GetWhereFilter(sourceSoFar, lambda, _output);
+                    // ----- ".NET" side: yield a real result, independently of the SQL above -----
+                    // This does NOT parse or execute sqlStatement in any way. It
+                    // reuses CarQueryProvider.GetWhereFilter to compile the same
+                    // predicate expression the SQL was generated from and filter
+                    // in-memory, purely so the example has actual Car results to
+                    // enumerate. If CarSqlExpressionVisitor produced wrong or
+                    // nonsensical SQL, the cars returned here would be completely
+                    // unaffected - both providers share one filtering
+                    // implementation instead of maintaining duplicate copies.
+                    var whereFilter = CarQueryProvider.GetWhereFilter(sourceSoFar, lambda, _output);
 
-                return whereFilter;
-
+                    return whereFilter;
+                }
             default:
-                throw new NotSupportedException($"Expression '{expression}' is not supported by {nameof(CarSqlQueryProvider)}.");
+                {
+                    throw new NotSupportedException($"Expression '{expression}' is not supported by {nameof(CarSqlQueryProvider)}.");
+                }
         }
     }
 

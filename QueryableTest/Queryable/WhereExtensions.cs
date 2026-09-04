@@ -23,7 +23,7 @@ internal static class WhereExtensions
         , Expression<Func<Car, bool>> predicate
         , IOutputProvider output)
     {
-        output.WriteLine("Called - building expression tree, nothing executed yet.");
+        output.WriteLine($"{nameof(Where)} called,  building expression tree, nothing executed yet.");
 
         var callExpression = Expression.Call(
             null,

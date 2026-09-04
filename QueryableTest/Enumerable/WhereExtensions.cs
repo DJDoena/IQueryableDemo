@@ -11,7 +11,7 @@ internal static class WhereExtensions
         , Func<Car, bool> predicate
         , IOutputProvider output)
     {
-        output.WriteLine("Called - returning a lazy iterator, nothing enumerated yet.");
+        output.WriteLine($"{nameof(Where)} called, returning a lazy iterator, nothing enumerated yet.");
 
         var enumerable = GetWhereIterator(source, predicate, output);
 

@@ -5,6 +5,17 @@ A small, hand-rolled demo that shows exactly what `IEnumerable<T>` and
 Everything here re-implements the pieces LINQ normally hides, so you can set
 breakpoints and watch the mechanics happen step by step.
 
+## Development notes
+
+This project (code, comments, README, and this document) was built
+iteratively in collaboration with **GitHub Copilot** (using the **Claude
+Sonnet 5** model) integrated into **Visual Studio Professional 2026
+(18.9.2)**, using its debugger-connected agent mode to inspect runtime state,
+set breakpoints, and verify behavior while implementing and refining the
+demo. See `chathistory.md` at the repository root for a chronological
+summary of the full session - every request, code change, bug found, and
+design decision made along the way.
+
 ## Project layout
 
 Code is split into folders/namespaces by concern:
@@ -40,6 +51,8 @@ Code is split into folders/namespaces by concern:
   `Where` method call node, compiling the predicate lambda, and filtering
   the source in-memory - the same outcome as the `IEnumerable` version, but
   built by walking an expression tree instead of calling a delegate directly.
+  (`CarSqlQueryProvider`'s equivalent method is also named `Evaluate`, so the
+  two providers can be compared side by side.)
 - `WhereExtensions.Where(IQueryable<Car>, Expression<Func<Car, bool>>, IOutputProvider)`
   - builds a `MethodCallExpression` node (including the `IOutputProvider`
 	argument, so the method's arity matches its 3-parameter signature) and
@@ -90,6 +103,41 @@ Code is split into folders/namespaces by concern:
 - `Storage.GetCarsQueryable` and `Program.cs` construct named `OutputProvider`
   instances (`"Provider"`, `"SqlProvider"`, `"Enumerable"`) and wire them
   through to the relevant constructors/methods.
+
+### 5. Delegate vs. expression: why `Func<Car, bool>` breaks translation
+- Because `CarQueryable<T>`/`CarSqlQueryable<T>` are both `IQueryable<T>` and
+  (transitively) `IEnumerable<T>`, they're valid targets for *both*
+  `WhereExtensions.Where` overloads - the `IEnumerable<Car>`/`Func<Car, bool>`
+  one and the `IQueryable<Car>`/`Expression<Func<Car, bool>>` one. Overload
+  resolution silently prefers whichever one actually matches the argument you
+  pass:
+  - An inline lambda (e.g. `c => c.Color == ConsoleColor.Red`) can convert to
+    either a delegate or an expression tree, so it binds to the
+    `IQueryable<Car>` overload here (delegate conversion is only picked as a
+    last resort), producing a proper `Where` `MethodCallExpression` that
+    `CarQueryProvider`/`CarSqlQueryProvider` can walk and (for the SQL
+    provider) translate into text.
+  - A pre-compiled `Func<Car, bool>` variable (e.g.
+    `Func<Car, bool> blueCarFilter = c => c.Color == ConsoleColor.Blue;`)
+    can **only** convert to a delegate, so it binds to the `IEnumerable<Car>`
+    overload instead - even when called on an `IQueryable<Car>`. No `Where`
+    node is ever appended to the expression tree; the query silently falls
+    back to plain client-side, item-by-item filtering.
+- `CarSqlQueryProvider.Evaluate(Expression, bool isTopLevel = true)` detects
+  this: reaching the root `ConstantExpression` case is normal when recursed
+  into from the `Where` `MethodCallExpression` case (`isTopLevel: false`), but
+  reaching it directly at the top level means `Evaluate` was invoked with
+  only the bare root and no `Where` call at all - i.e. no SQL could be
+  generated. In that case it `throw`s, rather than silently falling back to
+  client-side filtering: unlike the in-memory `CarQueryProvider` (which has no
+  SQL to generate and so nothing to fail at), a SQL-backed provider raising an
+  exception here mirrors real EF Core's behavior of throwing when a query
+  cannot be translated to SQL, instead of quietly evaluating it client-side.
+- `Program.cs`'s `TestEnumerable()`/`TestQueryable()`/`TestSqlQueryable()`
+  each include a "filter by 'blueCarFilter'" block using a local
+  `bool blueCarFilter(Car c) => ...` function to demonstrate this side-by-side
+  with the inline-lambda blocks: it filters correctly in the `IEnumerable`/
+  `IQueryable` sections, but throws in `TestSqlQueryable()`.
 
 ## Running the demo
 

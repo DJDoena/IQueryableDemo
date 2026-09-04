@@ -21,7 +21,9 @@ internal class CarQueryProvider : IQueryProvider
 
     public IQueryable CreateQuery(Expression expression)
     {
-        _output.WriteLine($"CreateQuery called with expression: {expression}");
+        var expressionText = expression.ToString();
+
+        _output.WriteLine($"{nameof(CreateQuery)} called with expression: {expressionText}");
 
         var elementType = expression.Type.GetGenericArguments()[0];
 
@@ -34,14 +36,18 @@ internal class CarQueryProvider : IQueryProvider
 
     public IQueryable<TElement> CreateQuery<TElement>(Expression expression)
     {
-        _output.WriteLine($"CreateQuery<{typeof(TElement).Name}> called with expression: {expression}");
+        var expressionText = expression.ToString();
+
+        _output.WriteLine($"{nameof(CreateQuery)}<{typeof(TElement).Name}> called with expression: {expressionText}");
 
         return new CarQueryable<TElement>(this, expression, _output);
     }
 
     public object? Execute(Expression expression)
     {
-        _output.WriteLine($"Execute called with expression: {expression}");
+        var expressionText = expression.ToString();
+
+        _output.WriteLine($"{nameof(Execute)} called with expression: {expressionText}");
 
         var result = this.Evaluate(expression);
 
@@ -50,7 +56,9 @@ internal class CarQueryProvider : IQueryProvider
 
     public TResult Execute<TResult>(Expression expression)
     {
-        _output.WriteLine($"Execute<{typeof(TResult).Name}> called with expression: {expression}");
+        var expressionText = expression.ToString();
+
+        _output.WriteLine($"Execute<{typeof(TResult).Name}> called with expression: {expressionText}");
 
         var result = (TResult)this.Evaluate(expression)!;
 
@@ -65,35 +73,39 @@ internal class CarQueryProvider : IQueryProvider
         switch (expression)
         {
             case ConstantExpression { Value: CarQueryable<Car> }:
-                // Base case / recursion terminator: we've unwound all the way
-                // back to the root node, which just means "start from the
-                // original data source" - our custom CarEnumerable.
-                return _source;
-
+                {
+                    // Base case / recursion terminator: we've unwound all the way
+                    // back to the root node, which just means "start from the
+                    // original data source" - our custom CarEnumerable.
+                    return _source;
+                }
             case MethodCallExpression { Method.Name: "Where" } whereCall:
-                // whereCall.Arguments[0] is the expression for whatever came
-                // before this Where (either the root constant, or another
-                // operator) - recurse into it first to get its results.
-                var filteredSource = (IEnumerable<Car>)this.Evaluate(whereCall.Arguments[0]);
+                {
+                    // whereCall.Arguments[0] is the expression for whatever came
+                    // before this Where (either the root constant, or another
+                    // operator) - recurse into it first to get its results.
+                    var filteredSource = (IEnumerable<Car>)this.Evaluate(whereCall.Arguments[0]);
 
-                // whereCall.Arguments[1] is the predicate lambda, wrapped in a
-                // Quote node (UnaryExpression) by the compiler. Unwrap it,
-                // then Compile() turns the expression tree back into an
-                // actual, callable Func<Car, bool> delegate.
-                var lambda = (LambdaExpression)StripQuotes(whereCall.Arguments[1]);
+                    // whereCall.Arguments[1] is the predicate lambda, wrapped in a
+                    // Quote node (UnaryExpression) by the compiler. Unwrap it,
+                    // then Compile() turns the expression tree back into an
+                    // actual, callable Func<Car, bool> delegate.
+                    var lambda = (LambdaExpression)StripQuotes(whereCall.Arguments[1]);
 
-                // A real SQL-backed provider would use the predicate's
-                // expression tree (not the compiled delegate) to build a
-                // WHERE clause instead of filtering in-memory below - see
-                // CarSqlQueryProvider for a demonstration of that approach.
-                var whereFilter = GetWhereFilter(filteredSource, lambda, _output);
+                    // A real SQL-backed provider would use the predicate's
+                    // expression tree (not the compiled delegate) to build a
+                    // WHERE clause instead of filtering in-memory below - see
+                    // CarSqlQueryProvider for a demonstration of that approach.
+                    var whereFilter = GetWhereFilter(filteredSource, lambda, _output);
 
-                return whereFilter;
-
+                    return whereFilter;
+                }
             default:
-                // Anything else (Select, OrderBy, Count, ...) isn't handled by
-                // this minimal example provider.
-                throw new NotSupportedException($"Expression '{expression}' is not supported by {nameof(CarQueryProvider)}.");
+                {
+                    // Anything else (Select, OrderBy, Count, ...) isn't handled by
+                    // this minimal example provider.
+                    throw new NotSupportedException($"Expression '{expression}' is not supported by {nameof(CarQueryProvider)}.");
+                }
         }
     }
 
